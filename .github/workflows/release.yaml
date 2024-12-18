@@ -7,8 +7,8 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-
+    runs-on: ubuntu-24.04
+      
     strategy:
       matrix:
         goos: [darwin, linux]
@@ -44,7 +44,11 @@ jobs:
 
   release:
     needs: [build]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pull-requests: write
+      repository-projects: write    
 
     steps:
       - name: Checkout code

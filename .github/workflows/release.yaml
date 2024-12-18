@@ -37,7 +37,7 @@ jobs:
           zip -j dist/obs-push-${{ matrix.goos }}-${{ matrix.goarch }}.zip build/obs-push-${{ matrix.goos }}-${{ matrix.goarch }}
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: obs-push-${{ matrix.goos }}-${{ matrix.goarch }}
           path: dist/obs-push-${{ matrix.goos }}-${{ matrix.goarch }}.zip
@@ -51,22 +51,22 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: obs-push-linux-arm64
           path: dist/linux-arm64
       - name: Download build artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: obs-push-linux-amd64
           path: dist/linux-amd64
       - name: Download build artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: obs-push-darwin-arm64
           path: dist/darwin-arm64
       - name: Download build artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: obs-push-darwin-amd64
           path: dist/darwin-amd64
@@ -83,7 +83,7 @@ jobs:
           prerelease: false
 
       - name: Upload Release Assets
-        uses: actions/upload-release-asset@v4
+        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -93,7 +93,7 @@ jobs:
           asset_content_type: application/zip
 
       - name: Upload Release Assets
-        uses: actions/upload-release-asset@v4
+        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -103,7 +103,7 @@ jobs:
           asset_content_type: application/zip
 
       - name: Upload Release Assets
-        uses: actions/upload-release-asset@v4
+        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -113,7 +113,7 @@ jobs:
           asset_content_type: application/zip
 
       - name: Upload Release Assets
-        uses: actions/upload-release-asset@v4
+        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:

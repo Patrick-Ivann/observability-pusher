@@ -17,9 +17,9 @@ import (
 	"k8s.io/client-go/util/homedir"
 )
 
-// createMessagePodCmd represents the createMessagePod command
-var createMessagePodCmd = &cobra.Command{
-	Use:   "create-message-pod --namespace=<namespace> --message=<message>",
+// pushLogsCmd represents the pushLogs command
+var pushLogsCmd = &cobra.Command{
+	Use:   "push-logs --namespace=<namespace> --message=<message>",
 	Short: "Create a pod that prints a message at regular intervals",
 	Run: func(cmd *cobra.Command, args []string) {
 		namespace, _ := cmd.Flags().GetString("namespace")
@@ -71,7 +71,7 @@ var createMessagePodCmd = &cobra.Command{
 			time.Sleep(time.Second * 2)
 		}
 
-		err = createMessagePod(clientset, namespace, POD_NAME, message, intervalInSecond)
+		err = pushLogs(clientset, namespace, POD_NAME, message, intervalInSecond)
 		if err != nil {
 			fmt.Printf("Error creating message pod: %s\n", err.Error())
 			return
@@ -111,16 +111,16 @@ var generateDummyDataCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(createMessagePodCmd)
-	createMessagePodCmd.Flags().String("namespace", "default", "Namespace to create resources in")
-	createMessagePodCmd.Flags().String("message", "", "Message to print at regular intervals")
-	createMessagePodCmd.Flags().Int("interval", 5, "interval")
+	rootCmd.AddCommand(pushLogsCmd)
+	pushLogsCmd.Flags().String("namespace", "default", "Namespace to create resources in")
+	pushLogsCmd.Flags().String("message", "", "Message to print at regular intervals")
+	pushLogsCmd.Flags().Int("interval", 5, "interval")
 
-	createMessagePodCmd.AddCommand(generateDummyDataCmd)
+	pushLogsCmd.AddCommand(generateDummyDataCmd)
 	generateDummyDataCmd.Flags().String("model", "", "JSON model to generate dummy data from")
 }
 
-func createMessagePod(clientset *kubernetes.Clientset, namespace string, podName string, message string, intervalInSecond int) error {
+func pushLogs(clientset *kubernetes.Clientset, namespace string, podName string, message string, intervalInSecond int) error {
 	pod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: podName,

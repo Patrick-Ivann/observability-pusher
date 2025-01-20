@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: metrics-generator-service
+  labels:
+    app: metrics-generator
+  annotations:
+    prometheus.io/port: "metrics"
+    prometheus.io/scrape: "true"
+spec:
+  ports:
+  - name: metrics
+    port: 8080
+    targetPort: 80
+    protocol: TCP
+  selector:
+    app: metrics-generator
+

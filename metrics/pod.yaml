@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: metrics-generator-pod
+  labels:
+    app: metrics-generator
+spec:
+  containers:
+    - name: metrics-generator
+      image: busybox
+      resources:
+        limits:
+          memory: "128Mi"
+          cpu: "50m"
+      args:
+        - /bin/sh
+        - -c
+        - |
+          while true; do
+            echo "# HELP my_gauge_metric A sample gauge metric" >> /usr/share/nginx/html/metrics
+            echo "# TYPE my_gauge_metric gauge" >> /usr/share/nginx/html/metrics
+            echo "my_gauge_metric{label=\"value\"} $(shuf -i 0-100 -n 1)" >> /usr/share/nginx/html/metrics
+            sleep 5
+          done
+      volumeMounts:
+        - name: metrics
+          mountPath: /usr/share/nginx/html
+    - name: nginx
+      image: nginx:alpine
+      ports:
+        - containerPort: 80
+      readinessProbe:
+        httpGet:
+          path: /metrics
+          port: 80
+          httpHeaders:
+            - name: Accept
+              value: text/plain; version=0.0.4; charset=utf-8
+      livenessProbe:
+        httpGet:
+          path: /metrics
+          port: 80
+          httpHeaders:
+            - name: Accept
+              value: text/plain; version=0.0.4; charset=utf-8
+      volumeMounts:
+        - name: metrics
+          mountPath: /usr/share/nginx/html
+      command: ["/bin/sh", "-c"]
+      args:
+        - |
+          # Configure Nginx
+          echo 'server {
+              listen 80;
+              location /metrics {
+                  default_type text/plain;
+                  add_header Content-Type "text/plain; version=0.0.4; charset=utf-8";
+                  root /usr/share/nginx/html;
+              }
+          }' > /etc/nginx/conf.d/default.conf;
+          # Start Nginx
+          nginx -g 'daemon off;'
+  volumes:
+    - name: metrics
+      emptyDir: {}
+
+

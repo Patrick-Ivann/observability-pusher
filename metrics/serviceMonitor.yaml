@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: metrics-generator-servicemonitor
+  labels:
+    app: metrics-generator
+spec:
+  selector:
+    matchLabels:
+      app: metrics-generator
+  endpoints:
+  # - port: "8080"
+  #   path: /metrics
+  #   interval: 5s
+  - path: /metrics
+    port: metrics
+    scheme: http
+    interval: 10s
+  jobLabel: spring-boot-with-docker-push

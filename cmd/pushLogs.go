@@ -7,7 +7,6 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"
@@ -55,21 +54,21 @@ var pushLogsCmd = &cobra.Command{
 			return
 		}
 
-		err = isNamespaceExisting(clientset, namespace)
-		if err != nil {
-			err = createNamespace(clientset, namespace)
-			if err != nil {
-				fmt.Printf("Error creating namespace: %s\n", err.Error())
-				return
-			}
-		}
+		// err = isNamespaceExisting(clientset, namespace)
+		// if err != nil {
+		// 	err = createNamespace(clientset, namespace)
+		// 	if err != nil {
+		// 		fmt.Printf("Error creating namespace: %s\n", err.Error())
+		// 		return
+		// 	}
+		// }
 
-		err = isPodExisting(clientset, namespace, POD_NAME)
+		// err = isPodExisting(clientset, namespace, POD_NAME)
 
-		if err == nil {
-			deletePod(clientset, namespace, POD_NAME)
-			time.Sleep(time.Second * 2)
-		}
+		// if err == nil {
+		// 	deletePod(clientset, namespace, POD_NAME)
+		// 	time.Sleep(time.Second * 2)
+		// }
 
 		err = pushLogs(clientset, namespace, POD_NAME, message, intervalInSecond)
 		if err != nil {

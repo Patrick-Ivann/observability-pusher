@@ -8,9 +8,9 @@ import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	monitoringclient "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -20,8 +20,14 @@ import (
 // KubernetesClient is an interface for mocking purposes
 type KubernetesClient interface {
 	CreateNamespace(name string) error
-	CreatePod(namespace, name, image string, command []string) error
+	CreatePod(namespace, name string, imageArgs []string) error
 	CreateService(namespace, name string, serviceType corev1.ServiceType) error
+	CreateServiceMonitor(namespace, name string) error
+	IsNamespaceExisting(namespace string) (bool, error)
+	IsPodExisting(name, namespace string) (bool, error)
+	IsServiceExisting(name, namespace string) (bool, error)
+	IsServiceMonitorExisting(name, namespace string) (bool, error)
+	DeletePod(name, namespace string) error
 }
 
 // Client implements the KubernetesClient interface
@@ -60,7 +66,7 @@ func NewClientset() (*Client, error) {
 
 // CreateNamespace creates a namespace
 func (c *Client) CreateNamespace(name string) error {
-	namespace := &v1.Namespace{
+	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
@@ -71,26 +77,94 @@ func (c *Client) CreateNamespace(name string) error {
 }
 
 // CreatePod creates a pod
-func (c *Client) CreatePod(namespace, name, image string, command []string, labels map[string]string) error {
+func (c *Client) CreatePod(namespace, name string, imageArgs []string, labels map[string]string) error {
 	unprivileged := false
 	readOnly := true
-	pod := &v1.Pod{
+	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: labels,
 			Name:   name,
 		},
-		Spec: v1.PodSpec{
-			Containers: []v1.Container{
+		Spec: corev1.PodSpec{
+			Volumes: []corev1.Volume{
+				corev1.Volume{
+					Name: "metrics",
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				},
+			},
+			Containers: []corev1.Container{
 				{
-					Name:    name,
-					Image:   image,
-					Command: command,
-					SecurityContext: &v1.SecurityContext{
-						Capabilities: &v1.Capabilities{
-							Drop: []v1.Capability{"ALL"},
+					Name:  name,
+					Image: "busybox",
+					Args:  imageArgs,
+					SecurityContext: &corev1.SecurityContext{
+						Capabilities: &corev1.Capabilities{
+							Drop: []corev1.Capability{"ALL"},
 						},
 						Privileged:             &unprivileged,
 						ReadOnlyRootFilesystem: &readOnly,
+					},
+					VolumeMounts: []corev1.VolumeMount{
+						corev1.VolumeMount{
+							Name:      "metrics",
+							MountPath: "/usr/share/nginx/html",
+						},
+					},
+				},
+				{
+					Name:    name + "" + "exposing",
+					Image:   "nginx:alpine",
+					Command: []string{"/bin/sh", "-c"},
+					Args: []string{` # Configure Nginx
+          echo 'server {
+              listen 80;
+              location /metrics {
+                  default_type text/plain;
+                  add_header Content-Type "text/plain; version=0.0.4; charset=utf-8";
+                  root /usr/share/nginx/html;
+              }
+          }' > /etc/nginx/conf.d/default.conf;
+          # Start Nginx
+          nginx -g 'daemon off;'`,
+					},
+					Ports: []corev1.ContainerPort{corev1.ContainerPort{
+						ContainerPort: 80,
+					}},
+					ReadinessProbe: &corev1.Probe{
+						ProbeHandler: corev1.ProbeHandler{
+							HTTPGet: &corev1.HTTPGetAction{
+								Path: "/metrics",
+								Port: intstr.FromInt(80),
+								HTTPHeaders: []corev1.HTTPHeader{
+									corev1.HTTPHeader{
+										Name:  "Accept",
+										Value: "text/plain; version=0.0.4; charset=utf-8",
+									},
+								},
+							},
+						},
+					},
+					LivenessProbe: &corev1.Probe{
+						ProbeHandler: corev1.ProbeHandler{
+							HTTPGet: &corev1.HTTPGetAction{
+								Path: "/metrics",
+								Port: intstr.FromInt(80),
+								HTTPHeaders: []corev1.HTTPHeader{
+									corev1.HTTPHeader{
+										Name:  "Accept",
+										Value: "text/plain; version=0.0.4; charset=utf-8",
+									},
+								},
+							},
+						},
+					},
+					VolumeMounts: []corev1.VolumeMount{
+						corev1.VolumeMount{
+							Name:      "metrics",
+							MountPath: "/usr/share/nginx/html",
+						},
 					},
 				},
 			},
@@ -103,17 +177,17 @@ func (c *Client) CreatePod(namespace, name, image string, command []string, labe
 
 // CreateService creates a service
 func (c *Client) CreateService(namespace, name string, serviceType corev1.ServiceType) error {
-	service := &v1.Service{
+	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
-		Spec: v1.ServiceSpec{
+		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
 				"app": name,
 			},
-			Ports: []v1.ServicePort{
+			Ports: []corev1.ServicePort{
 				{
-					Protocol: v1.ProtocolTCP,
+					Protocol: corev1.ProtocolTCP,
 					Port:     80,
 				},
 			},
@@ -164,4 +238,44 @@ func (c *Client) CreateServiceMonitor(namespace, name string) error {
 	}
 
 	return nil
+}
+
+func (c *Client) IsNamespaceExisting(namespace string) (bool, error) {
+	_, err := c.clientset.CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
+// IsPodExisting checks if a pod exists in a namespace
+func (c *Client) IsPodExisting(name, namespace string) (bool, error) {
+	_, err := c.clientset.CoreV1().Pods(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
+// IsServiceExisting checks if a service exists in a namespace
+func (c *Client) IsServiceExisting(name, namespace string) (bool, error) {
+	_, err := c.clientset.CoreV1().Services(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
+// IsServiceMonitorExisting checks if a ServiceMonitor exists in a namespace
+func (c *Client) IsServiceMonitorExisting(name, namespace string) (bool, error) {
+	_, err := c.monitoringClientset.MonitoringV1().ServiceMonitors(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
+func (c *Client) DeletePod(namespace, name string) error {
+	err := c.clientset.CoreV1().Pods(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
+	return err
 }

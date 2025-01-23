@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"obs-pusher/internal/sources"
+	"obs-pusher/Patrick-Ivann/observability-pusher/internal/sources"
 	"os"
 	"text/tabwriter"
 

@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"obs-pusher/internal/kubernetes"
+	"obs-pusher/Patrick-Ivann/observability-pusher/internal/kubernetes"
 
 	"github.com/spf13/cobra"
 )

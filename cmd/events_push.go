@@ -3,8 +3,8 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"obs-pusher/internal/kubernetes"
-	"obs-pusher/internal/sources"
+	"obs-pusher/Patrick-Ivann/observability-pusher/internal/kubernetes"
+	"obs-pusher/Patrick-Ivann/observability-pusher/internal/sources"
 	"os"
 	"strings"
 

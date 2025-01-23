@@ -16,8 +16,8 @@ var eventID string
 
 func init() {
 	eventsPushCmd.Flags().String("element", "", "Name of producing app")
-	eventsPushCmd.Flags().String("namespace", "default", "Namespace to create resources in")
-	eventsPushCmd.Flags().String("message", "", "Message to print at regular intervals")
+	eventsPushCmd.Flags().String("namespace", "default", "Namespace to create the app in")
+	eventsPushCmd.Flags().String("message", "", "Message to print at regular intervals. IF a value is provided to event-id, this flag will fill the message template e.g '--message=value1,value2'")
 	eventsPushCmd.Flags().Int("interval", 5, "interval")
 	eventsPushCmd.Flags().Var(&podLabels, "pod-labels", `Specify labels as "key:value,anotherkey:anothervalue"`)
 	eventsPushCmd.Flags().StringVar(&eventFilePath, "event-file", os.Getenv("HOME")+"/.obs-pusher/"+"dictionary.xml", "Path to the XML file for the event")
@@ -29,7 +29,7 @@ func init() {
 var eventsPushCmd = &cobra.Command{
 	Use:   "push",
 	Short: "Push an event",
-	Long:  "Push an event --namespace=<> --element=<> --message=<> --interval=<> --pod-labels=key:value,anotherkey:anothervalue",
+	Long:  "Push an event --element <> --event-id=<> --message=something --namespace=<> --interval=10 --pod-labels=bip:boup",
 	Run: func(cmd *cobra.Command, args []string) {
 
 		namespace, _ := cmd.Flags().GetString("namespace")

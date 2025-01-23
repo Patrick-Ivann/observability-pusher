@@ -37,3 +37,10 @@ func (l *Labels) Set(value string) error {
 func (l *Labels) Type() string {
 	return "labels"
 }
+
+// Append appends new labels to the existing ones, overriding any existing keys
+func (l *Labels) Append(newLabels Labels) {
+	for key, value := range newLabels {
+		(*l)[key] = value
+	}
+}

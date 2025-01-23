@@ -216,13 +216,12 @@ func (c *Client) CreateService(namespace, name string, labels map[string]string)
 			Labels: labels,
 		},
 		Spec: corev1.ServiceSpec{
-			Selector: map[string]string{
-				"app": name,
-			},
+			Selector: labels,
 			Ports: []corev1.ServicePort{
 				{
 					Protocol: corev1.ProtocolTCP,
 					Port:     80,
+					Name:     "http-metrics",
 				},
 			},
 			Type: corev1.ServiceTypeClusterIP,
@@ -239,10 +238,12 @@ func (c *Client) CreateServiceMonitor(namespace, name string, labels map[string]
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+			Labels:    labels,
 		},
 		Spec: monitoringv1.ServiceMonitorSpec{
+
 			Selector: metav1.LabelSelector{
-				MatchLabels: map[string]string{"app": "my-app"},
+				MatchLabels: labels,
 			},
 			Endpoints: []monitoringv1.Endpoint{
 				{

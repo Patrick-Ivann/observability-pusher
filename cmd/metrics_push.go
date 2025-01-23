@@ -35,8 +35,6 @@ var metricsPushCmd = &cobra.Command{
 		metricTagValue, _ := cmd.Flags().GetString("tag-value")
 		metricTagLabel, _ := cmd.Flags().GetString("tag-label")
 
-		fmt.Println("Pushing a metric...")
-
 		knImpl, err := kubernetes.NewClientset()
 		if err != nil {
 			println(err)
@@ -55,7 +53,7 @@ var metricsPushCmd = &cobra.Command{
 		}
 
 		// Check if pod exists by fetching it based on labels
-		services, err := knImpl.FetchServiceByLabels(namespace, Labels{"obspusher": "metrics"})
+		services, err := knImpl.FetchServiceByLabels(namespace, Labels{"obs-pusher": "metrics"})
 		if err != nil {
 			println(err)
 			return
@@ -72,7 +70,7 @@ var metricsPushCmd = &cobra.Command{
 		knImpl.CreateService(namespace, elementName, Labels{"obs-pusher": "metrics"})
 
 		// Check if pod exists by fetching it based on labels
-		servicemonitors, err := knImpl.FetchServiceMonitorByLabels(namespace, Labels{"obspusher": "metrics"})
+		servicemonitors, err := knImpl.FetchServiceMonitorByLabels(namespace, Labels{"obs-pusher": "metrics"})
 		if err != nil {
 			println(err)
 			return
@@ -90,7 +88,7 @@ var metricsPushCmd = &cobra.Command{
 		// Use existing serviceMonitor
 
 		// Check if pod exists by fetching it based on labels
-		podList, err := knImpl.FetchPodByLabels(namespace, Labels{"obspusher": "metrics"})
+		podList, err := knImpl.FetchPodByLabels(namespace, Labels{"obs-pusher": "metrics"})
 		if err != nil {
 			println(err)
 			return
@@ -103,13 +101,27 @@ var metricsPushCmd = &cobra.Command{
 				knImpl.WaitForPodDeletion(namespace, pod.Name)
 			}
 		}
-		// Create pod metric generator and exposing
-		knImpl.CreateMetricPod(namespace, elementName, []string{"/bin/sh", "-c", fmt.Sprintf(`while true; do
-                                     echo "# HELP %s A custom gauge metric" > /usr/share/nginx/html/metrics;
-                                     echo "# TYPE %s gauge" >> /usr/share/nginx/html/metrics;
-                                     echo "%s{%s=\"%s\"} %d" >> /usr/share/nginx/html/metrics;
-                                     sleep 5;
-                                   done`, metricName, metricName, metricName, metricTagLabel, metricTagValue, metricValue)}, podLabels)
+		if metricTagLabel != "" && metricTagValue != "" {
 
+			// Create pod metric generator and exposing
+			knImpl.CreateMetricPod(namespace, elementName, []string{"/bin/sh", "-c", fmt.Sprintf(`while true; do
+			echo "# HELP %s A custom gauge metric" > /usr/share/nginx/html/metrics;
+			echo "# TYPE %s gauge" >> /usr/share/nginx/html/metrics;
+			echo "%s{%s=\"%s\"} %d" >> /usr/share/nginx/html/metrics;
+			sleep 5;
+			done`, metricName, metricName, metricName, metricTagLabel, metricTagValue, metricValue)}, podLabels)
+			return
+		}
+		if metricTagLabel == "" && metricTagValue == "" {
+
+			// Create pod metric generator and exposing
+			knImpl.CreateMetricPod(namespace, elementName, []string{"/bin/sh", "-c", fmt.Sprintf(`while true; do
+			echo "# HELP %s A custom gauge metric" > /usr/share/nginx/html/metrics;
+			echo "# TYPE %s gauge" >> /usr/share/nginx/html/metrics;
+			echo "%s %d" >> /usr/share/nginx/html/metrics;
+			sleep 5;
+			done`, metricName, metricName, metricName, metricValue)}, podLabels)
+			return
+		}
 	},
 }

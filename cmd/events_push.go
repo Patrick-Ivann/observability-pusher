@@ -62,11 +62,8 @@ var eventsPushCmd = &cobra.Command{
 			notifValuesArray := strings.Split(message, ",")
 			formattedMessage := selectedNotification.Text
 			for i, value := range notifValuesArray {
-				println(value)
 				placeholder := fmt.Sprintf("{%d}", i)
-				println(placeholder)
 				formattedMessage = strings.ReplaceAll(formattedMessage, placeholder, value)
-				println(formattedMessage)
 			}
 
 			selectedNotification.Text = formattedMessage

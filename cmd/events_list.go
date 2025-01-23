@@ -1,8 +1,8 @@
 package cmd
 
 import (
+	"Patrick-Ivann/observability-pusher/internal/sources"
 	"fmt"
-	"obs-pusher/Patrick-Ivann/observability-pusher/internal/sources"
 	"os"
 	"text/tabwriter"
 

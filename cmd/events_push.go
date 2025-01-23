@@ -1,10 +1,10 @@
 package cmd
 
 import (
+	"Patrick-Ivann/observability-pusher/internal/kubernetes"
+	"Patrick-Ivann/observability-pusher/internal/sources"
 	"encoding/json"
 	"fmt"
-	"obs-pusher/Patrick-Ivann/observability-pusher/internal/kubernetes"
-	"obs-pusher/Patrick-Ivann/observability-pusher/internal/sources"
 	"os"
 	"strings"
 

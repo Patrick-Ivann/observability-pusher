@@ -1,4 +1,4 @@
-module obs-pusher/Patrick-Ivann/observability-pusher
+module Patrick-Ivann/observability-pusher
 
 go 1.23.0
 

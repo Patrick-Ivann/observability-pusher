@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"time"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	v1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	monitoringclient "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -20,14 +22,20 @@ import (
 // KubernetesClient is an interface for mocking purposes
 type KubernetesClient interface {
 	CreateNamespace(name string) error
-	CreatePod(namespace, name string, imageArgs []string) error
-	CreateService(namespace, name string, serviceType corev1.ServiceType) error
-	CreateServiceMonitor(namespace, name string) error
+	CreateMetricPod(namespace, name string, imageArgs []string, labels map[string]string) error
+	CreateLogPod(namespace, name string, imageArgs []string, labels map[string]string) error
+	CreateService(namespace, name string, serviceType, labels map[string]string) error
+	CreateServiceMonitor(namespace, name string, labels map[string]string) error
 	IsNamespaceExisting(namespace string) (bool, error)
 	IsPodExisting(name, namespace string) (bool, error)
 	IsServiceExisting(name, namespace string) (bool, error)
 	IsServiceMonitorExisting(name, namespace string) (bool, error)
+	FetchPodByLabels(namespace string, labels map[string]string) (*corev1.PodList, error)
+	FetchServiceByLabels(namespace string, labels map[string]string) (*corev1.ServiceList, error)
+	FetchServiceMonitorByLabels(namespace string, labels map[string]string) (*v1.ServiceMonitorList, error)
 	DeletePod(name, namespace string) error
+	DeleteService(name, namespace string) error
+	DeleteServiceMonitor(name, namespace string) error
 }
 
 // Client implements the KubernetesClient interface
@@ -77,17 +85,18 @@ func (c *Client) CreateNamespace(name string) error {
 }
 
 // CreatePod creates a pod
-func (c *Client) CreatePod(namespace, name string, imageArgs []string, labels map[string]string) error {
+func (c *Client) CreateMetricPod(namespace, name string, imageArgs []string, labels map[string]string) error {
 	unprivileged := false
 	readOnly := true
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Labels: labels,
-			Name:   name,
+			Labels:    labels,
+			Name:      name,
+			Namespace: namespace,
 		},
 		Spec: corev1.PodSpec{
 			Volumes: []corev1.Volume{
-				corev1.Volume{
+				{
 					Name: "metrics",
 					VolumeSource: corev1.VolumeSource{
 						EmptyDir: &corev1.EmptyDirVolumeSource{},
@@ -96,7 +105,7 @@ func (c *Client) CreatePod(namespace, name string, imageArgs []string, labels ma
 			},
 			Containers: []corev1.Container{
 				{
-					Name:  name,
+					Name:  name + "-" + "generates",
 					Image: "busybox",
 					Args:  imageArgs,
 					SecurityContext: &corev1.SecurityContext{
@@ -107,14 +116,14 @@ func (c *Client) CreatePod(namespace, name string, imageArgs []string, labels ma
 						ReadOnlyRootFilesystem: &readOnly,
 					},
 					VolumeMounts: []corev1.VolumeMount{
-						corev1.VolumeMount{
+						{
 							Name:      "metrics",
 							MountPath: "/usr/share/nginx/html",
 						},
 					},
 				},
 				{
-					Name:    name + "" + "exposing",
+					Name:    name + "-" + "exposing",
 					Image:   "nginx:alpine",
 					Command: []string{"/bin/sh", "-c"},
 					Args: []string{` # Configure Nginx
@@ -129,7 +138,7 @@ func (c *Client) CreatePod(namespace, name string, imageArgs []string, labels ma
           # Start Nginx
           nginx -g 'daemon off;'`,
 					},
-					Ports: []corev1.ContainerPort{corev1.ContainerPort{
+					Ports: []corev1.ContainerPort{{
 						ContainerPort: 80,
 					}},
 					ReadinessProbe: &corev1.Probe{
@@ -138,7 +147,7 @@ func (c *Client) CreatePod(namespace, name string, imageArgs []string, labels ma
 								Path: "/metrics",
 								Port: intstr.FromInt(80),
 								HTTPHeaders: []corev1.HTTPHeader{
-									corev1.HTTPHeader{
+									{
 										Name:  "Accept",
 										Value: "text/plain; version=0.0.4; charset=utf-8",
 									},
@@ -152,7 +161,7 @@ func (c *Client) CreatePod(namespace, name string, imageArgs []string, labels ma
 								Path: "/metrics",
 								Port: intstr.FromInt(80),
 								HTTPHeaders: []corev1.HTTPHeader{
-									corev1.HTTPHeader{
+									{
 										Name:  "Accept",
 										Value: "text/plain; version=0.0.4; charset=utf-8",
 									},
@@ -161,7 +170,7 @@ func (c *Client) CreatePod(namespace, name string, imageArgs []string, labels ma
 						},
 					},
 					VolumeMounts: []corev1.VolumeMount{
-						corev1.VolumeMount{
+						{
 							Name:      "metrics",
 							MountPath: "/usr/share/nginx/html",
 						},
@@ -175,11 +184,36 @@ func (c *Client) CreatePod(namespace, name string, imageArgs []string, labels ma
 	return err
 }
 
+func (c *Client) CreateLogPod(namespace, name string, imageArgs []string, labels map[string]string) error {
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels:    labels,
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name:    name,
+					Image:   "busybox",
+					Command: []string{"/bin/sh", "-c"},
+					Args:    imageArgs,
+				},
+			},
+		},
+	}
+
+	_, err := c.clientset.CoreV1().Pods(namespace).Create(context.TODO(), pod, metav1.CreateOptions{})
+	return err
+}
+
 // CreateService creates a service
-func (c *Client) CreateService(namespace, name string, serviceType corev1.ServiceType) error {
+func (c *Client) CreateService(namespace, name string, labels map[string]string) error {
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			Name:   name,
+			Labels: labels,
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
@@ -191,7 +225,7 @@ func (c *Client) CreateService(namespace, name string, serviceType corev1.Servic
 					Port:     80,
 				},
 			},
-			Type: serviceType,
+			Type: corev1.ServiceTypeClusterIP,
 		},
 	}
 
@@ -200,7 +234,7 @@ func (c *Client) CreateService(namespace, name string, serviceType corev1.Servic
 }
 
 // CreateServiceMonitor creates or updates a ServiceMonitor
-func (c *Client) CreateServiceMonitor(namespace, name string) error {
+func (c *Client) CreateServiceMonitor(namespace, name string, labels map[string]string) error {
 	serviceMonitor := &monitoringv1.ServiceMonitor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -278,4 +312,60 @@ func (c *Client) IsServiceMonitorExisting(name, namespace string) (bool, error) 
 func (c *Client) DeletePod(namespace, name string) error {
 	err := c.clientset.CoreV1().Pods(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	return err
+}
+func (c *Client) DeleteService(namespace, name string) error {
+	err := c.clientset.CoreV1().Services(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
+	return err
+}
+func (c *Client) DeleteServiceMonitor(namespace, name string) error {
+	err := c.monitoringClientset.MonitoringV1().ServiceMonitors(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
+	return err
+}
+
+// FetchPodByLabels fetches pods based on labels and checks if any exist
+func (c *Client) FetchPodByLabels(namespace string, labels map[string]string) (*corev1.PodList, error) {
+	labelSelector := metav1.LabelSelector{MatchLabels: labels}
+	listOptions := metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(&labelSelector)}
+	pods, err := c.clientset.CoreV1().Pods(namespace).List(context.TODO(), listOptions)
+	if err != nil {
+		return nil, err
+	}
+	return pods, nil
+}
+
+func (c *Client) FetchServiceByLabels(namespace string, labels map[string]string) (*corev1.ServiceList, error) {
+	labelSelector := metav1.LabelSelector{MatchLabels: labels}
+	listOptions := metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(&labelSelector)}
+	services, err := c.clientset.CoreV1().Services(namespace).List(context.TODO(), listOptions)
+	if err != nil {
+		return nil, err
+	}
+	return services, nil
+
+}
+
+func (c *Client) FetchServiceMonitorByLabels(namespace string, labels map[string]string) (*v1.ServiceMonitorList, error) {
+
+	labelSelector := metav1.LabelSelector{MatchLabels: labels}
+	listOptions := metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(&labelSelector)}
+	servicemonitors, err := c.monitoringClientset.MonitoringV1().ServiceMonitors(namespace).List(context.TODO(), listOptions)
+	if err != nil {
+		return nil, err
+	}
+	return servicemonitors, nil
+
+}
+
+// WaitForPodDeletion waits until the pod is deleted
+func (c *Client) WaitForPodDeletion(namespace, name string) error {
+	for {
+		_, err := c.clientset.CoreV1().Pods(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		time.Sleep(1 * time.Second) // Check every second
+	}
 }

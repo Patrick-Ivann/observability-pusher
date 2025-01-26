@@ -40,14 +40,14 @@ var eventsPushCmd = &cobra.Command{
 
 		// Use event file and ID if provided
 		if eventID != "" {
-			notifications, err := sources.ReadEventsList(eventFilePath)
+			dictionary, err := sources.ReadDictionary(eventFilePath)
 			if err != nil {
 				fmt.Println("Error:", err)
 				return
 			}
 
 			var selectedNotification *sources.Notification
-			for _, notification := range notifications {
+			for _, notification := range dictionary.Notifications {
 				if notification.ID == eventID {
 					selectedNotification = &notification
 					break
@@ -67,7 +67,6 @@ var eventsPushCmd = &cobra.Command{
 			}
 
 			selectedNotification.Text = formattedMessage
-			println(selectedNotification.Text)
 			jsonData, err := json.Marshal(selectedNotification)
 			if err != nil {
 				fmt.Println("Error generating JSON:", err)
@@ -80,14 +79,14 @@ var eventsPushCmd = &cobra.Command{
 
 		knImpl, err := kubernetes.NewClientset()
 		if err != nil {
-			println(err)
+			println(err.Error())
 			return
 		}
 
 		// check if namespace exists
 		isNamespaceExisting, err := knImpl.IsNamespaceExisting(namespace)
 		if err != nil {
-			println(err)
+			println(err.Error())
 			return
 		}
 		// create namespace
@@ -98,7 +97,7 @@ var eventsPushCmd = &cobra.Command{
 		// Check if pod exists by fetching it based on labels
 		podList, err := knImpl.FetchPodByLabels(namespace, Labels{"obs-pusher": "events"})
 		if err != nil {
-			println(err)
+			println(err.Error())
 			return
 		}
 

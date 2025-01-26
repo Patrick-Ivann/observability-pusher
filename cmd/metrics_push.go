@@ -7,10 +7,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var podLabels Labels
-
 func init() {
-	podLabels = Labels{"obs-pusher": "metrics"} // Initialize with default label
 
 	metricsPushCmd.Flags().String("namespace", "test", "Namespace to create resources in")
 	metricsPushCmd.Flags().String("element", "", "Name of producing app")
@@ -18,7 +15,26 @@ func init() {
 	metricsPushCmd.Flags().Int("value", 0, "Value of the metric to push")
 	metricsPushCmd.Flags().String("tag-value", "", "")
 	metricsPushCmd.Flags().String("tag-label", "", "")
-	metricsPushCmd.Flags().Var(&podLabels, "pod-labels", `Specify labels as "key:value,anotherkey:anothervalue"`)
+	// metricsPushCmd.Flags().Var(&podLabels, "pod-labels", `Specify labels as "key:value,anotherkey:anothervalue"`)
+
+}
+
+func generateMetricCommand(metricName string, metricValue int, metricTagLabel, metricTagValue string) string {
+	if metricTagLabel != "" && metricTagValue != "" {
+		return fmt.Sprintf(`while true; do
+        echo "# HELP %s A custom gauge metric" > /usr/share/nginx/html/metrics;
+        echo "# TYPE %s gauge" >> /usr/share/nginx/html/metrics;
+        echo "%s{%s=\"%s\"} %d" >> /usr/share/nginx/html/metrics;
+        sleep 5;
+        done`, metricName, metricName, metricName, metricTagLabel, metricTagValue, metricValue)
+	}
+
+	return fmt.Sprintf(`while true; do
+    echo "# HELP %s A custom gauge metric" > /usr/share/nginx/html/metrics;
+    echo "# TYPE %s gauge" >> /usr/share/nginx/html/metrics;
+    echo "%s %d" >> /usr/share/nginx/html/metrics;
+    sleep 5;
+    done`, metricName, metricName, metricName, metricValue)
 }
 
 // metricsPushCmd represents the push command for metrics
@@ -37,14 +53,14 @@ var metricsPushCmd = &cobra.Command{
 
 		knImpl, err := kubernetes.NewClientset()
 		if err != nil {
-			println(err)
+			println(err.Error())
 			return
 		}
 
 		// check if namespace exists
 		isNamespaceExisting, err := knImpl.IsNamespaceExisting(namespace)
 		if err != nil {
-			println(err)
+			println(err.Error())
 			return
 		}
 		// create namespace
@@ -55,7 +71,7 @@ var metricsPushCmd = &cobra.Command{
 		// Check if pod exists by fetching it based on labels
 		services, err := knImpl.FetchServiceByLabels(namespace, Labels{"obs-pusher": "metrics"})
 		if err != nil {
-			println(err)
+			println(err.Error())
 			return
 		}
 
@@ -72,7 +88,7 @@ var metricsPushCmd = &cobra.Command{
 		// Check if pod exists by fetching it based on labels
 		servicemonitors, err := knImpl.FetchServiceMonitorByLabels(namespace, Labels{"obs-pusher": "metrics"})
 		if err != nil {
-			println(err)
+			println(err.Error())
 			return
 		}
 
@@ -90,7 +106,7 @@ var metricsPushCmd = &cobra.Command{
 		// Check if pod exists by fetching it based on labels
 		podList, err := knImpl.FetchPodByLabels(namespace, Labels{"obs-pusher": "metrics"})
 		if err != nil {
-			println(err)
+			println(err.Error())
 			return
 		}
 
@@ -101,27 +117,10 @@ var metricsPushCmd = &cobra.Command{
 				knImpl.WaitForPodDeletion(namespace, pod.Name)
 			}
 		}
-		if metricTagLabel != "" && metricTagValue != "" {
 
-			// Create pod metric generator and exposing
-			knImpl.CreateMetricPod(namespace, elementName, []string{"/bin/sh", "-c", fmt.Sprintf(`while true; do
-			echo "# HELP %s A custom gauge metric" > /usr/share/nginx/html/metrics;
-			echo "# TYPE %s gauge" >> /usr/share/nginx/html/metrics;
-			echo "%s{%s=\"%s\"} %d" >> /usr/share/nginx/html/metrics;
-			sleep 5;
-			done`, metricName, metricName, metricName, metricTagLabel, metricTagValue, metricValue)}, podLabels)
-			return
-		}
-		if metricTagLabel == "" && metricTagValue == "" {
+		// Generate metric command based on provided tags and values
+		metricCommand := generateMetricCommand(metricName, metricValue, metricTagLabel, metricTagValue)
+		knImpl.CreateMetricPod(namespace, elementName, []string{"/bin/sh", "-c", metricCommand}, podLabels)
 
-			// Create pod metric generator and exposing
-			knImpl.CreateMetricPod(namespace, elementName, []string{"/bin/sh", "-c", fmt.Sprintf(`while true; do
-			echo "# HELP %s A custom gauge metric" > /usr/share/nginx/html/metrics;
-			echo "# TYPE %s gauge" >> /usr/share/nginx/html/metrics;
-			echo "%s %d" >> /usr/share/nginx/html/metrics;
-			sleep 5;
-			done`, metricName, metricName, metricName, metricValue)}, podLabels)
-			return
-		}
 	},
 }

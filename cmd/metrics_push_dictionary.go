@@ -1,0 +1,153 @@
+package cmd
+
+import (
+	"Patrick-Ivann/observability-pusher/internal/kubernetes"
+	"Patrick-Ivann/observability-pusher/internal/sources"
+	"fmt"
+	"strings"
+
+	"github.com/spf13/cobra"
+)
+
+func init() {
+	podLabels = Labels{"obs-pusher": "metrics"} // Initialize with default label
+
+	metricsPushDictionaryCmd.Flags().String("metric", "", "Name of the metric to push")
+	metricsPushDictionaryCmd.Flags().Int("value", 0, "Value of the metric to push")
+	metricsPushDictionaryCmd.Flags().String("tag-value", "", "")
+
+}
+
+// metricsPushDictionaryCmd
+var metricsPushDictionaryCmd = &cobra.Command{
+	Use:     "push-from",
+	Short:   "Push a metric using the dictionary",
+	Example: "--metric=<> --value=<> --tag-value=<> --pod-labels=key:value,anotherkey:anothervalue",
+
+	Run: func(cmd *cobra.Command, args []string) {
+		metricName, _ := cmd.Flags().GetString("metric")
+		metricValue, _ := cmd.Flags().GetInt("value")
+		metricTagValue, _ := cmd.Flags().GetString("tag-value")
+
+		knImpl, err := kubernetes.NewClientset()
+		if err != nil {
+			println(err.Error())
+			return
+		}
+
+		// Read metrics from the XML file if provided
+		if metricName != "" {
+
+			var selectedMetric *sources.Metric
+			var namespace string
+			var elementName string
+
+			dictionary, err := sources.ReadDictionary(metricFilePath)
+			if err != nil {
+				println(err.Error())
+				return
+			}
+
+			for _, metric := range dictionary.Metrics {
+				if metric.Name == metricName {
+					selectedMetric = &metric
+					break
+				}
+			}
+
+			if selectedMetric == nil {
+				println("Error: Metric with the specified name not found")
+				return
+			}
+
+			namespace = strings.Split(selectedMetric.Name, ".")[0]
+			elementName = namespace
+
+			// check if namespace exists
+			isNamespaceExisting, err := knImpl.IsNamespaceExisting(namespace)
+			if err != nil {
+				println(err.Error())
+				return
+			}
+			// create namespace
+			if !isNamespaceExisting {
+				knImpl.CreateNamespace(namespace)
+			}
+
+			// Check if pod exists by fetching it based on labels
+			services, err := knImpl.FetchServiceByLabels(namespace, Labels{"obs-pusher": "metrics", "element": elementName})
+			if err != nil {
+				println(err.Error())
+				return
+			}
+
+			// delete existing pod if it exists
+			if len(services.Items) > 0 {
+				for _, pod := range services.Items {
+					knImpl.DeleteService(namespace, pod.Name)
+				}
+			}
+
+			// Create service with specific name and namespace
+			knImpl.CreateService(namespace, elementName, Labels{"obs-pusher": "metrics", "element": elementName})
+
+			// Check if pod exists by fetching it based on labels
+			servicemonitors, err := knImpl.FetchServiceMonitorByLabels(namespace, Labels{"obs-pusher": "metrics", "element": elementName})
+			if err != nil {
+				println(err.Error())
+				return
+			}
+
+			// delete existing pod if it exists
+			if len(servicemonitors.Items) > 0 {
+				for _, pod := range servicemonitors.Items {
+					knImpl.DeleteServiceMonitor(namespace, pod.Name)
+				}
+			}
+
+			knImpl.CreateServiceMonitor(namespace, elementName, Labels{"obs-pusher": "metrics", "element": elementName})
+
+			// Use existing serviceMonitor
+
+			// Check if pod exists by fetching it based on labels
+			podList, err := knImpl.FetchPodByLabels(namespace, Labels{"obs-pusher": "metrics", "element": elementName})
+			if err != nil {
+				println(err.Error())
+				return
+			}
+
+			// delete existing pod if it exists
+			if len(podList.Items) > 0 {
+				for _, pod := range podList.Items {
+					knImpl.DeletePod(namespace, pod.Name)
+					knImpl.WaitForPodDeletion(namespace, pod.Name)
+				}
+			}
+
+			// Prepare tag values
+			tagValuesArray := strings.Split(metricTagValue, ",")
+			tags := strings.Split(selectedMetric.Tags, "=")
+			valuesMap := make(map[string]string)
+			for i, tag := range tags {
+				if i < len(tagValuesArray) {
+					valuesMap[tag] = tagValuesArray[i]
+				} else {
+					valuesMap[tag] = ""
+				}
+			}
+
+			metricTemplate := selectedMetric.GenerateMetricTemplate(valuesMap, metricValue)
+			// Generate metric template and create pod metric generator
+			metricCommand := fmt.Sprintf(`while true; do
+                echo "# HELP %s %s" > /usr/share/nginx/html/metrics;
+                echo "# TYPE %s %s" >> /usr/share/nginx/html/metrics;
+                %s
+                sleep 5;
+                done`, selectedMetric.FullyQualifiedName, selectedMetric.Description, selectedMetric.FullyQualifiedName, selectedMetric.Type, metricTemplate)
+
+			knImpl.CreateMetricPod(namespace, elementName, []string{"/bin/sh", "-c", metricCommand}, podLabels)
+			return
+		}
+
+	},
+}

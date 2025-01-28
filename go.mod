@@ -2,7 +2,7 @@ module Patrick-Ivann/observability-pusher
 
 go 1.23.0
 
-toolchain go1.23.5
+toolchain go1.23.0
 
 require (
 	github.com/spf13/cobra v1.8.1

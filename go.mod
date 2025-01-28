@@ -2,6 +2,8 @@ module github.com/Patrick-Ivann/observability-pusher
 
 go 1.23.0
 
+toolchain go1.23.5
+
 require (
 	github.com/spf13/cobra v1.8.1
 	k8s.io/api v0.32.0

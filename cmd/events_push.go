@@ -1,12 +1,13 @@
 package cmd
 
 import (
-	"Patrick-Ivann/observability-pusher/internal/kubernetes"
-	"Patrick-Ivann/observability-pusher/internal/sources"
 	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/Patrick-Ivann/observability-pusher/internal/kubernetes"
+	"github.com/Patrick-Ivann/observability-pusher/internal/sources"
 
 	"github.com/spf13/cobra"
 )

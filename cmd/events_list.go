@@ -1,10 +1,11 @@
 package cmd
 
 import (
-	"Patrick-Ivann/observability-pusher/internal/sources"
 	"fmt"
 	"os"
 	"text/tabwriter"
+
+	"github.com/Patrick-Ivann/observability-pusher/internal/sources"
 
 	"github.com/spf13/cobra"
 )

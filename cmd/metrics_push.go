@@ -1,8 +1,9 @@
 package cmd
 
 import (
-	"Patrick-Ivann/observability-pusher/internal/kubernetes"
 	"fmt"
+
+	"github.com/Patrick-Ivann/observability-pusher/internal/kubernetes"
 
 	"github.com/spf13/cobra"
 )

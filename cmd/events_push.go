@@ -23,6 +23,7 @@ func init() {
 	eventsPushCmd.Flags().Var(&podLabels, "pod-labels", `Specify labels as "key:value,anotherkey:anothervalue"`)
 	eventsPushCmd.Flags().StringVar(&eventFilePath, "event-file", os.Getenv("HOME")+"/.obs-pusher/"+"dictionary.xml", "Path to the XML file for the event")
 	eventsPushCmd.Flags().StringVar(&eventID, "event-id", "", "The ID of the event to generate")
+	eventsPushCmd.Flags().Bool("psa-enabled", false, "if the cluster has some Pod Security Admission enabled")
 
 }
 
@@ -37,6 +38,7 @@ var eventsPushCmd = &cobra.Command{
 		elementName, _ := cmd.Flags().GetString("element")
 		message, _ := cmd.Flags().GetString("message")
 		intervalInSecond, _ := cmd.Flags().GetInt("interval")
+		isPsaEnabled, _ := cmd.Flags().GetBool("psa-enabled")
 		podLabels.Append(Labels{"obs-pusher": "events"})
 
 		// Use event file and ID if provided
@@ -110,7 +112,7 @@ var eventsPushCmd = &cobra.Command{
 			}
 		}
 		// Create a new pod
-		err = knImpl.CreateLogPod(namespace, elementName, []string{fmt.Sprintf(`while true; do echo '%s'; sleep %d; done`, message, intervalInSecond)}, podLabels)
+		err = knImpl.CreateLogPod(namespace, elementName, []string{fmt.Sprintf(`while true; do echo '%s'; sleep %d; done`, message, intervalInSecond)}, podLabels, isPsaEnabled)
 
 		if err != nil {
 			println(err.Error())

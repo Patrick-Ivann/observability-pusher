@@ -72,6 +72,37 @@ func NewClientset() (*Client, error) {
 	return &Client{clientset: clientset, monitoringClientset: monitoringClientset}, nil
 }
 
+func addSecurityContext(pod *corev1.Pod) {
+	podSecurityContext := &corev1.PodSecurityContext{
+		RunAsNonRoot: new(bool),
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
+	}
+	*podSecurityContext.RunAsNonRoot = true
+
+	pod.Spec.SecurityContext = podSecurityContext
+
+	containerSecurityContext := &corev1.SecurityContext{
+		RunAsNonRoot:           new(bool),
+		ReadOnlyRootFilesystem: new(bool),
+		Capabilities: &corev1.Capabilities{
+			Drop: []corev1.Capability{
+				"ALL",
+			},
+		},
+		AllowPrivilegeEscalation: new(bool),
+	}
+	*containerSecurityContext.RunAsNonRoot = true
+	*containerSecurityContext.AllowPrivilegeEscalation = false
+	*containerSecurityContext.ReadOnlyRootFilesystem = true
+
+	for i := range pod.Spec.Containers {
+		pod.Spec.Containers[i].SecurityContext = containerSecurityContext
+	}
+
+}
+
 // CreateNamespace creates a namespace
 func (c *Client) CreateNamespace(name string) error {
 	namespace := &corev1.Namespace{
@@ -85,7 +116,7 @@ func (c *Client) CreateNamespace(name string) error {
 }
 
 // CreatePod creates a pod
-func (c *Client) CreateMetricPod(namespace, name string, imageArgs []string, labels map[string]string) error {
+func (c *Client) CreateMetricPod(namespace, name string, imageArgs []string, labels map[string]string, isClusterRestricted bool) error {
 	unprivileged := false
 	readOnly := true
 	pod := &corev1.Pod{
@@ -179,12 +210,15 @@ func (c *Client) CreateMetricPod(namespace, name string, imageArgs []string, lab
 			},
 		},
 	}
+	if isClusterRestricted {
+		addSecurityContext(pod)
+	}
 
 	_, err := c.clientset.CoreV1().Pods(namespace).Create(context.TODO(), pod, metav1.CreateOptions{})
 	return err
 }
 
-func (c *Client) CreateLogPod(namespace, name string, imageArgs []string, labels map[string]string) error {
+func (c *Client) CreateLogPod(namespace, name string, imageArgs []string, labels map[string]string, isClusterRestricted bool) error {
 
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -202,6 +236,10 @@ func (c *Client) CreateLogPod(namespace, name string, imageArgs []string, labels
 				},
 			},
 		},
+	}
+
+	if isClusterRestricted {
+		addSecurityContext(pod)
 	}
 
 	_, err := c.clientset.CoreV1().Pods(namespace).Create(context.TODO(), pod, metav1.CreateOptions{})

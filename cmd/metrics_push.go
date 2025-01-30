@@ -16,6 +16,7 @@ func init() {
 	metricsPushCmd.Flags().Int("value", 0, "Value of the metric to push")
 	metricsPushCmd.Flags().String("tag-value", "", "")
 	metricsPushCmd.Flags().String("tag-label", "", "")
+	metricsPushCmd.Flags().Bool("psa-enabled", false, "if the cluster has some Pod Security Admission enabled")
 	// metricsPushCmd.Flags().Var(&podLabels, "pod-labels", `Specify labels as "key:value,anotherkey:anothervalue"`)
 
 }
@@ -51,6 +52,7 @@ var metricsPushCmd = &cobra.Command{
 		metricValue, _ := cmd.Flags().GetInt("value")
 		metricTagValue, _ := cmd.Flags().GetString("tag-value")
 		metricTagLabel, _ := cmd.Flags().GetString("tag-label")
+		isPsaEnabled, _ := cmd.Flags().GetBool("psa-enabled")
 
 		knImpl, err := kubernetes.NewClientset()
 		if err != nil {
@@ -121,7 +123,7 @@ var metricsPushCmd = &cobra.Command{
 
 		// Generate metric command based on provided tags and values
 		metricCommand := generateMetricCommand(metricName, metricValue, metricTagLabel, metricTagValue)
-		knImpl.CreateMetricPod(namespace, elementName, []string{"/bin/sh", "-c", metricCommand}, podLabels)
+		knImpl.CreateMetricPod(namespace, elementName, []string{"/bin/sh", "-c", metricCommand}, podLabels, isPsaEnabled)
 
 	},
 }

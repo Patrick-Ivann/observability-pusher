@@ -42,10 +42,12 @@ type KubernetesClient interface {
 type Client struct {
 	clientset           *kubernetes.Clientset
 	monitoringClientset *monitoringclient.Clientset
+	registryPullSecret  string
+	registryPath        string
 }
 
 // NewClientset creates a new Kubernetes clientset
-func NewClientset() (*Client, error) {
+func NewClientset(registryPath, registrySecret string) (*Client, error) {
 	var config *rest.Config
 	var err error
 
@@ -69,7 +71,7 @@ func NewClientset() (*Client, error) {
 		return nil, err
 	}
 
-	return &Client{clientset: clientset, monitoringClientset: monitoringClientset}, nil
+	return &Client{clientset: clientset, monitoringClientset: monitoringClientset, registryPullSecret: registrySecret, registryPath: registryPath}, nil
 }
 
 func addSecurityContext(pod *corev1.Pod) {
@@ -103,6 +105,13 @@ func addSecurityContext(pod *corev1.Pod) {
 
 }
 
+func addImagePullSecret(pod *corev1.Pod, secretName string) {
+	imagePullSecret := corev1.LocalObjectReference{
+		Name: secretName,
+	}
+	pod.Spec.ImagePullSecrets = append(pod.Spec.ImagePullSecrets, imagePullSecret)
+}
+
 // CreateNamespace creates a namespace
 func (c *Client) CreateNamespace(name string) error {
 	namespace := &corev1.Namespace{
@@ -117,6 +126,12 @@ func (c *Client) CreateNamespace(name string) error {
 
 // CreatePod creates a pod
 func (c *Client) CreateMetricPod(namespace, name string, imageArgs []string, labels map[string]string, isClusterRestricted bool) error {
+
+	image := "alpine"
+	if c.registryPath != "" {
+		image = fmt.Sprintf("%s/alpine", c.registryPath)
+	}
+
 	unprivileged := false
 	readOnly := true
 	pod := &corev1.Pod{
@@ -137,7 +152,7 @@ func (c *Client) CreateMetricPod(namespace, name string, imageArgs []string, lab
 			Containers: []corev1.Container{
 				{
 					Name:  name + "-" + "generates",
-					Image: "busybox",
+					Image: image,
 					Args:  imageArgs,
 					SecurityContext: &corev1.SecurityContext{
 						Capabilities: &corev1.Capabilities{
@@ -220,6 +235,11 @@ func (c *Client) CreateMetricPod(namespace, name string, imageArgs []string, lab
 
 func (c *Client) CreateLogPod(namespace, name string, imageArgs []string, labels map[string]string, isClusterRestricted bool) error {
 
+	image := "alpine"
+	if c.registryPath != "" {
+		image = fmt.Sprintf("%s/alpine", c.registryPath)
+	}
+
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels:    labels,
@@ -230,12 +250,16 @@ func (c *Client) CreateLogPod(namespace, name string, imageArgs []string, labels
 			Containers: []corev1.Container{
 				{
 					Name:    name,
-					Image:   "busybox",
+					Image:   image,
 					Command: []string{"/bin/sh", "-c"},
 					Args:    imageArgs,
 				},
 			},
 		},
+	}
+
+	if c.registryPath != "" {
+		addImagePullSecret(pod, c.registryPullSecret)
 	}
 
 	if isClusterRestricted {

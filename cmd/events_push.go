@@ -25,6 +25,9 @@ func init() {
 	eventsPushCmd.Flags().StringVar(&eventID, "event-id", "", "The ID of the event to generate")
 	eventsPushCmd.Flags().Bool("psa-enabled", false, "if the cluster has some Pod Security Admission enabled")
 
+	eventsPushCmd.Flags().String("image-pull-secret", "", "Name of the image pull secret")
+	eventsPushCmd.Flags().String("registry-path", "", "Registry path for the image")
+
 }
 
 // eventsPushCmd represents the push command for events
@@ -39,6 +42,8 @@ var eventsPushCmd = &cobra.Command{
 		message, _ := cmd.Flags().GetString("message")
 		intervalInSecond, _ := cmd.Flags().GetInt("interval")
 		isPsaEnabled, _ := cmd.Flags().GetBool("psa-enabled")
+		registry, _ := cmd.Flags().GetString("registry-path")
+		registryPullSecret, _ := cmd.Flags().GetString("image-pull-secret")
 		podLabels.Append(Labels{"obs-pusher": "events"})
 
 		// Use event file and ID if provided
@@ -80,7 +85,7 @@ var eventsPushCmd = &cobra.Command{
 
 		}
 
-		knImpl, err := kubernetes.NewClientset()
+		knImpl, err := kubernetes.NewClientset(registry, registryPullSecret)
 		if err != nil {
 			println(err.Error())
 			return

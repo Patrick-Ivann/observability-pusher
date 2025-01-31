@@ -53,8 +53,10 @@ var metricsPushCmd = &cobra.Command{
 		metricTagValue, _ := cmd.Flags().GetString("tag-value")
 		metricTagLabel, _ := cmd.Flags().GetString("tag-label")
 		isPsaEnabled, _ := cmd.Flags().GetBool("psa-enabled")
+		registry, _ := cmd.Flags().GetString("registry-path")
+		registryPullSecret, _ := cmd.Flags().GetString("image-pull-secret")
 
-		knImpl, err := kubernetes.NewClientset()
+		knImpl, err := kubernetes.NewClientset(registry, registryPullSecret)
 		if err != nil {
 			println(err.Error())
 			return

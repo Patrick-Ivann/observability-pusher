@@ -27,6 +27,7 @@ func init() {
 
 	eventsPushCmd.Flags().String("image-pull-secret", "", "Name of the image pull secret")
 	eventsPushCmd.Flags().String("registry-path", "", "Registry path for the image")
+	eventsPushCmd.Flags().String("service-account", "default", "Name of the ServiceAccount to use")
 
 }
 
@@ -44,6 +45,8 @@ var eventsPushCmd = &cobra.Command{
 		isPsaEnabled, _ := cmd.Flags().GetBool("psa-enabled")
 		registry, _ := cmd.Flags().GetString("registry-path")
 		registryPullSecret, _ := cmd.Flags().GetString("image-pull-secret")
+		serviceAccount, _ := cmd.Flags().GetString("service-account")
+
 		podLabels.Append(Labels{"obs-pusher": "events"})
 
 		// Use event file and ID if provided
@@ -85,7 +88,7 @@ var eventsPushCmd = &cobra.Command{
 
 		}
 
-		knImpl, err := kubernetes.NewClientset(registry, registryPullSecret)
+		knImpl, err := kubernetes.NewClientset(registry, registryPullSecret, serviceAccount)
 		if err != nil {
 			println(err.Error())
 			return

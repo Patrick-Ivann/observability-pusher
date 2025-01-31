@@ -17,6 +17,7 @@ func init() {
 	metricsPushCmd.Flags().String("tag-value", "", "")
 	metricsPushCmd.Flags().String("tag-label", "", "")
 	metricsPushCmd.Flags().Bool("psa-enabled", false, "if the cluster has some Pod Security Admission enabled")
+	metricsPushCmd.Flags().String("service-account", "default", "Name of the ServiceAccount to use")
 	// metricsPushCmd.Flags().Var(&podLabels, "pod-labels", `Specify labels as "key:value,anotherkey:anothervalue"`)
 
 }
@@ -55,8 +56,8 @@ var metricsPushCmd = &cobra.Command{
 		isPsaEnabled, _ := cmd.Flags().GetBool("psa-enabled")
 		registry, _ := cmd.Flags().GetString("registry-path")
 		registryPullSecret, _ := cmd.Flags().GetString("image-pull-secret")
-
-		knImpl, err := kubernetes.NewClientset(registry, registryPullSecret)
+		serviceAccount, _ := cmd.Flags().GetString("service-account")
+		knImpl, err := kubernetes.NewClientset(registry, registryPullSecret, serviceAccount)
 		if err != nil {
 			println(err.Error())
 			return

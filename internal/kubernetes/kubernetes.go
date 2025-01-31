@@ -44,10 +44,11 @@ type Client struct {
 	monitoringClientset *monitoringclient.Clientset
 	registryPullSecret  string
 	registryPath        string
+	serviceAccountName  string
 }
 
 // NewClientset creates a new Kubernetes clientset
-func NewClientset(registryPath, registrySecret string) (*Client, error) {
+func NewClientset(registryPath, registrySecret, serviceAccountName string) (*Client, error) {
 	var config *rest.Config
 	var err error
 
@@ -71,7 +72,7 @@ func NewClientset(registryPath, registrySecret string) (*Client, error) {
 		return nil, err
 	}
 
-	return &Client{clientset: clientset, monitoringClientset: monitoringClientset, registryPullSecret: registrySecret, registryPath: registryPath}, nil
+	return &Client{clientset: clientset, monitoringClientset: monitoringClientset, registryPullSecret: registrySecret, registryPath: registryPath, serviceAccountName: serviceAccountName}, nil
 }
 
 func addSecurityContext(pod *corev1.Pod) {
@@ -112,6 +113,10 @@ func addImagePullSecret(pod *corev1.Pod, secretName string) {
 	pod.Spec.ImagePullSecrets = append(pod.Spec.ImagePullSecrets, imagePullSecret)
 }
 
+func addServiceAccount(pod *corev1.Pod, serviceAccount string) {
+	pod.Spec.ServiceAccountName = serviceAccount
+}
+
 // CreateNamespace creates a namespace
 func (c *Client) CreateNamespace(name string) error {
 	namespace := &corev1.Namespace{
@@ -128,6 +133,7 @@ func (c *Client) CreateNamespace(name string) error {
 func (c *Client) CreateMetricPod(namespace, name string, imageArgs []string, labels map[string]string, isClusterRestricted bool) error {
 
 	image := "alpine"
+
 	if c.registryPath != "" {
 		image = fmt.Sprintf("%s/alpine", c.registryPath)
 	}
@@ -229,6 +235,11 @@ func (c *Client) CreateMetricPod(namespace, name string, imageArgs []string, lab
 		addSecurityContext(pod)
 	}
 
+	// Add ServiceAccount based on the flag
+	if c.serviceAccountName != "" {
+		addServiceAccount(pod, c.serviceAccountName)
+	}
+
 	_, err := c.clientset.CoreV1().Pods(namespace).Create(context.TODO(), pod, metav1.CreateOptions{})
 	return err
 }
@@ -264,6 +275,11 @@ func (c *Client) CreateLogPod(namespace, name string, imageArgs []string, labels
 
 	if isClusterRestricted {
 		addSecurityContext(pod)
+	}
+
+	// Add ServiceAccount based on the flag
+	if c.serviceAccountName != "default" {
+		addServiceAccount(pod, c.serviceAccountName)
 	}
 
 	_, err := c.clientset.CoreV1().Pods(namespace).Create(context.TODO(), pod, metav1.CreateOptions{})

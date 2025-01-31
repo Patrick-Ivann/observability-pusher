@@ -17,6 +17,7 @@ func init() {
 	metricsPushDictionaryCmd.Flags().Int("value", 0, "Value of the metric to push")
 	metricsPushDictionaryCmd.Flags().String("tag-value", "", "If the dictionary contains tags to set, provide value using this flag")
 	metricsPushDictionaryCmd.Flags().Bool("psa-enabled", false, "if the cluster has some Pod Security Admission enabled")
+	metricsPushDictionaryCmd.Flags().String("service-account", "default", "Name of the ServiceAccount to use")
 
 }
 
@@ -33,8 +34,9 @@ var metricsPushDictionaryCmd = &cobra.Command{
 		isPsaEnabled, _ := cmd.Flags().GetBool("psa-enabled")
 		registry, _ := cmd.Flags().GetString("registry-path")
 		registryPullSecret, _ := cmd.Flags().GetString("image-pull-secret")
+		serviceAccount, _ := cmd.Flags().GetString("service-account")
 
-		knImpl, err := kubernetes.NewClientset(registry, registryPullSecret)
+		knImpl, err := kubernetes.NewClientset(registry, registryPullSecret, serviceAccount)
 		if err != nil {
 			println(err.Error())
 			return

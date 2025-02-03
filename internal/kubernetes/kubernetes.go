@@ -235,6 +235,10 @@ func (c *Client) CreateMetricPod(namespace, name string, imageArgs []string, lab
 		addSecurityContext(pod)
 	}
 
+	if c.registryPullSecret != "" {
+		addImagePullSecret(pod, c.registryPullSecret)
+	}
+
 	// Add ServiceAccount based on the flag
 	if c.serviceAccountName != "" {
 		addServiceAccount(pod, c.serviceAccountName)
@@ -269,7 +273,7 @@ func (c *Client) CreateLogPod(namespace, name string, imageArgs []string, labels
 		},
 	}
 
-	if c.registryPath != "" {
+	if c.registryPullSecret != "" {
 		addImagePullSecret(pod, c.registryPullSecret)
 	}
 

@@ -11,12 +11,12 @@ import (
 )
 
 type Dictionary struct {
-	XMLName       xml.Name       `xml:"dictionary"`
-	Notifications []Notification `xml:"notification"`
-	Metrics       []Metric       `xml:"metric"`
+	XMLName xml.Name `xml:"dictionary"`
+	Logs    []Log    `xml:"notification"`
+	Metrics []Metric `xml:"metric"`
 }
 
-type Notification struct {
+type Log struct {
 	ID       string `xml:"ID,attr"`
 	Flag     bool   `xml:"flag,attr"`
 	Severity string `xml:"severity,attr"`
@@ -73,8 +73,8 @@ func GenerateJSON(filePath string, notificationID string) (string, error) {
 		return "", err
 	}
 
-	var selectedNotification *Notification
-	for _, notification := range notifications.Notifications {
+	var selectedNotification *Log
+	for _, notification := range notifications.Logs {
 		if notification.ID == notificationID {
 			selectedNotification = &notification
 			break

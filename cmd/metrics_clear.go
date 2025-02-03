@@ -5,7 +5,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func int() {
+func init() {
 	metricsClearCmd.Flags().String("namespace", "", "Namespace to fetch resources in, if no value will scan the whole cluster")
 	metricsClearCmd.Flags().Var(&podLabels, "pod-labels", `Specify labels as "key:value,anotherkey:anothervalue"`)
 }

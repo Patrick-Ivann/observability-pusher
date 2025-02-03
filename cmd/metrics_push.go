@@ -22,7 +22,7 @@ func init() {
 
 }
 
-func generateMetricCommand(metricName string, metricValue int, metricTagLabel, metricTagValue string) string {
+func generateMetricCommand(metricName string, metricValue int16, metricTagLabel string, metricTagValue string) string {
 	if metricTagLabel != "" && metricTagValue != "" {
 		return fmt.Sprintf(`while true; do
         echo "# HELP %s A custom gauge metric" > /usr/share/nginx/html/metrics;
@@ -125,7 +125,7 @@ var metricsPushCmd = &cobra.Command{
 		}
 
 		// Generate metric command based on provided tags and values
-		metricCommand := generateMetricCommand(metricName, metricValue, metricTagLabel, metricTagValue)
+		metricCommand := generateMetricCommand(metricName, int16(metricValue), metricTagLabel, metricTagValue)
 		knImpl.CreateMetricPod(namespace, elementName, []string{"/bin/sh", "-c", metricCommand}, podLabels, isPsaEnabled)
 
 	},

@@ -21,6 +21,7 @@ func init() {
 
 	metricsCmd.AddCommand(metricsListCmd)
 	metricsCmd.AddCommand(metricsPushCmd)
+	metricsCmd.AddCommand(metricsClearCmd)
 	metricsCmd.AddCommand(metricsPushDictionaryCmd)
 	metricsCmd.Flags().Var(&podLabels, "pod-labels", `Specify labels as "key:value,anotherkey:anothervalue"`)
 

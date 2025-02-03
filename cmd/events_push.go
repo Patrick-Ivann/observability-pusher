@@ -57,8 +57,8 @@ var eventsPushCmd = &cobra.Command{
 				return
 			}
 
-			var selectedNotification *sources.Notification
-			for _, notification := range dictionary.Notifications {
+			var selectedNotification *sources.Log
+			for _, notification := range dictionary.Logs {
 				if notification.ID == eventID {
 					selectedNotification = &notification
 					break

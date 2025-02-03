@@ -24,7 +24,7 @@ var eventsListCmd = &cobra.Command{
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 1, 1, ' ', tabwriter.TabIndent)
 		fmt.Fprintln(w, "ID\tTEXT")
-		for _, notification := range dictionary.Notifications {
+		for _, notification := range dictionary.Logs {
 			fmt.Fprintf(w, "%s\t%s\n",
 				notification.ID, notification.Text)
 		}

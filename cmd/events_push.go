@@ -12,7 +12,7 @@ func init() {
 	eventsPushCmd.Flags().String("name", "", "Name of producing app")
 	eventsPushCmd.Flags().String("namespace", "default", "Namespace to create the app in")
 	eventsPushCmd.Flags().String("message", "", "Message to print at regular intervals. IF a value is provided to event-id, this flag will fill the message template e.g '--message=value1,value2'")
-	eventsPushCmd.Flags().Int("interval", 5, "interval")
+	eventsPushCmd.Flags().Int("interval", 5, "interval between repetitions of messages, if set to -1 the message will be emitted once")
 	eventsPushCmd.Flags().Var(&podLabels, "pod-labels", `Specify labels as "key:value,anotherkey:anothervalue"`)
 	eventsPushCmd.Flags().Bool("psa-enabled", false, "if the cluster has some Pod Security Admission enabled")
 
@@ -71,8 +71,13 @@ var eventsPushCmd = &cobra.Command{
 				knImpl.WaitForPodDeletion(namespace, pod.Name)
 			}
 		}
+
+		script := fmt.Sprintf(`while true; do echo '%s'; sleep %d; done`, message, intervalInSecond)
+		if intervalInSecond == -1 {
+			script = fmt.Sprintf(`echo '%s'`, message)
+		}
 		// Create a new pod
-		err = knImpl.CreateLogPod(namespace, applicationName, []string{fmt.Sprintf(`while true; do echo '%s'; sleep %d; done`, message, intervalInSecond)}, podLabels, isPsaEnabled)
+		err = knImpl.CreateLogPod(namespace, applicationName, []string{script}, podLabels, isPsaEnabled)
 
 		if err != nil {
 			println(err.Error())

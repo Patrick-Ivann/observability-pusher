@@ -23,7 +23,7 @@ func init() {
 	eventsCmd.AddCommand(eventsClearCmd)
 	eventsCmd.AddCommand(eventsPushSequenceCmd)
 
-	eventsFilePath = *eventsCmd.Flags().String("path", os.Getenv("HOME")+"/.obs-pusher/"+"events.xml", "path of the source xml")
+	eventsFilePath = *eventsCmd.Flags().String("event-file", os.Getenv("HOME")+"/.obs-pusher/"+"events.xml", "path of the source xml")
 	eventsCmd.Flags().Var(&podLabels, "pod-labels", `Specify labels as "key:value,anotherkey:anothervalue"`)
 
 }

@@ -18,6 +18,7 @@ func init() {
 	podLabels = Labels{"obs-pusher": "events"} // Initialize with default label
 
 	eventsCmd.AddCommand(eventsPushCmd)
+	eventsCmd.AddCommand(eventsPushFromDictionaryCmd)
 	eventsCmd.AddCommand(eventsListCmd)
 	eventsCmd.AddCommand(eventsClearCmd)
 	eventsCmd.AddCommand(eventsPushSequenceCmd)

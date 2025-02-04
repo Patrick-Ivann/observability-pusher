@@ -11,7 +11,7 @@ import (
 func init() {
 
 	metricsPushCmd.Flags().String("namespace", "test", "Namespace to create resources in")
-	metricsPushCmd.Flags().String("element", "", "Name of producing app")
+	metricsPushCmd.Flags().String("name", "", "Name of producing app")
 	metricsPushCmd.Flags().String("metric", "", "Name of the metric to push")
 	metricsPushCmd.Flags().Int("value", 0, "Value of the metric to push")
 	metricsPushCmd.Flags().String("tag-value", "", "")
@@ -48,7 +48,7 @@ var metricsPushCmd = &cobra.Command{
 
 	Run: func(cmd *cobra.Command, args []string) {
 		namespace, _ := cmd.Flags().GetString("namespace")
-		elementName, _ := cmd.Flags().GetString("element")
+		applicationName, _ := cmd.Flags().GetString("name")
 		metricName, _ := cmd.Flags().GetString("metric")
 		metricValue, _ := cmd.Flags().GetInt("value")
 		metricTagValue, _ := cmd.Flags().GetString("tag-value")
@@ -89,7 +89,7 @@ var metricsPushCmd = &cobra.Command{
 		}
 
 		// Create service with specific name and namespace
-		knImpl.CreateService(namespace, elementName, Labels{"obs-pusher": "metrics"})
+		knImpl.CreateService(namespace, applicationName, Labels{"obs-pusher": "metrics"})
 
 		// Check if pod exists by fetching it based on labels
 		servicemonitors, err := knImpl.FetchServiceMonitorByLabels(namespace, Labels{"obs-pusher": "metrics"})
@@ -105,7 +105,7 @@ var metricsPushCmd = &cobra.Command{
 			}
 		}
 
-		knImpl.CreateServiceMonitor(namespace, elementName, Labels{"obs-pusher": "metrics"})
+		knImpl.CreateServiceMonitor(namespace, applicationName, Labels{"obs-pusher": "metrics"})
 
 		// Use existing serviceMonitor
 
@@ -126,7 +126,7 @@ var metricsPushCmd = &cobra.Command{
 
 		// Generate metric command based on provided tags and values
 		metricCommand := generateMetricCommand(metricName, int16(metricValue), metricTagLabel, metricTagValue)
-		knImpl.CreateMetricPod(namespace, elementName, []string{"/bin/sh", "-c", metricCommand}, podLabels, isPsaEnabled)
+		knImpl.CreateMetricPod(namespace, applicationName, []string{"/bin/sh", "-c", metricCommand}, podLabels, isPsaEnabled)
 
 	},
 }

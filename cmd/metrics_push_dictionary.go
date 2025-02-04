@@ -47,7 +47,7 @@ var metricsPushDictionaryCmd = &cobra.Command{
 
 			var selectedMetric *sources.Metric
 			var namespace string
-			var elementName string
+			var applicationName string
 
 			dictionary, err := sources.ReadDictionary(metricFilePath)
 			if err != nil {
@@ -68,7 +68,7 @@ var metricsPushDictionaryCmd = &cobra.Command{
 			}
 
 			namespace = strings.Split(selectedMetric.Name, ".")[0]
-			elementName = namespace
+			applicationName = namespace
 
 			// check if namespace exists
 			isNamespaceExisting, err := knImpl.IsNamespaceExisting(namespace)
@@ -82,7 +82,7 @@ var metricsPushDictionaryCmd = &cobra.Command{
 			}
 
 			// Check if pod exists by fetching it based on labels
-			services, err := knImpl.FetchServiceByLabels(namespace, Labels{"obs-pusher": "metrics", "element": elementName})
+			services, err := knImpl.FetchServiceByLabels(namespace, Labels{"obs-pusher": "metrics", "element": applicationName})
 			if err != nil {
 				println(err.Error())
 				return
@@ -96,10 +96,10 @@ var metricsPushDictionaryCmd = &cobra.Command{
 			}
 
 			// Create service with specific name and namespace
-			knImpl.CreateService(namespace, elementName, Labels{"obs-pusher": "metrics", "element": elementName})
+			knImpl.CreateService(namespace, applicationName, Labels{"obs-pusher": "metrics", "element": applicationName})
 
 			// Check if pod exists by fetching it based on labels
-			servicemonitors, err := knImpl.FetchServiceMonitorByLabels(namespace, Labels{"obs-pusher": "metrics", "element": elementName})
+			servicemonitors, err := knImpl.FetchServiceMonitorByLabels(namespace, Labels{"obs-pusher": "metrics", "element": applicationName})
 			if err != nil {
 				println(err.Error())
 				return
@@ -112,12 +112,12 @@ var metricsPushDictionaryCmd = &cobra.Command{
 				}
 			}
 
-			knImpl.CreateServiceMonitor(namespace, elementName, Labels{"obs-pusher": "metrics", "element": elementName})
+			knImpl.CreateServiceMonitor(namespace, applicationName, Labels{"obs-pusher": "metrics", "element": applicationName})
 
 			// Use existing serviceMonitor
 
 			// Check if pod exists by fetching it based on labels
-			podList, err := knImpl.FetchPodByLabels(namespace, Labels{"obs-pusher": "metrics", "element": elementName})
+			podList, err := knImpl.FetchPodByLabels(namespace, Labels{"obs-pusher": "metrics", "element": applicationName})
 			if err != nil {
 				println(err.Error())
 				return
@@ -152,7 +152,7 @@ var metricsPushDictionaryCmd = &cobra.Command{
                 sleep 5;
                 done`, selectedMetric.FullyQualifiedName, selectedMetric.Description, selectedMetric.FullyQualifiedName, selectedMetric.Type, metricTemplate)
 
-			knImpl.CreateMetricPod(namespace, elementName, []string{"/bin/sh", "-c", metricCommand}, podLabels, isPsaEnabled)
+			knImpl.CreateMetricPod(namespace, applicationName, []string{"/bin/sh", "-c", metricCommand}, podLabels, isPsaEnabled)
 			return
 		}
 

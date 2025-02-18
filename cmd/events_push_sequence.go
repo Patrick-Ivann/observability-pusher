@@ -24,7 +24,6 @@ func init() {
 	eventsPushSequenceCmd.Flags().String("registry-path", "", "Registry path for the image")
 	eventsPushSequenceCmd.Flags().String("image-pull-secret", "", "Name of the image pull secret")
 	eventsPushSequenceCmd.Flags().String("service-account", "default", "Name of the ServiceAccount to use")
-
 }
 
 func generateLogs(sequenceEvents []sources.SequenceNotification, events []sources.Log) string {
@@ -32,7 +31,7 @@ func generateLogs(sequenceEvents []sources.SequenceNotification, events []source
 	for _, seqEvent := range sequenceEvents {
 		isInSlice := slices.ContainsFunc(events, func(c sources.Log) bool { return c.ID == seqEvent.ID })
 		if !isInSlice {
-			fmt.Printf(" event id %s not in dictionary \n", seqEvent.ID)
+			fmt.Printf("event id %s not in dictionary \n", seqEvent.ID)
 			continue
 		}
 		for i := 0; i < seqEvent.Repetition; i++ {
@@ -94,21 +93,11 @@ var eventsPushSequenceCmd = &cobra.Command{
 			log.Fatalf("Failed to parse sequence events: %v", err)
 		}
 
-		// Determine pod name
-		podName := "log-generator-pod"
-		podLabels.Append(Labels{"obs-pusher": "events"})
-
+		// Group sequence events by name
+		groupedSequenceEvents := make(map[string][]sources.SequenceNotification)
 		for _, seqEvent := range sequenceEvents {
-			if seqEvent.Name != "" {
-				podName = seqEvent.Name
-			}
-			if len(seqEvent.Labels) > 0 {
-				seqLabels := parseLabels(seqEvent.Labels)
-				podLabels.Append(seqLabels)
-			}
+			groupedSequenceEvents[seqEvent.Name] = append(groupedSequenceEvents[seqEvent.Name], seqEvent)
 		}
-		// Generate logs based on the parsed sequence events and events
-		script := generateLogs(sequenceEvents, eventDictionary.Logs)
 
 		knImpl, err := kubernetes.NewClientset(registry, registryPullSecret, serviceAccount)
 		if err != nil {
@@ -116,38 +105,54 @@ var eventsPushSequenceCmd = &cobra.Command{
 			return
 		}
 
-		// check if namespace exists
+		// Check if namespace exists
 		isNamespaceExisting, err := knImpl.IsNamespaceExisting(namespace)
 		if err != nil {
 			println(err.Error())
 			return
 		}
-		// create namespace
+		// Create namespace
 		if !isNamespaceExisting {
 			knImpl.CreateNamespace(namespace)
 		}
 
-		// Check if pod exists by fetching it based on labels
-		podList, err := knImpl.FetchPodByLabels(namespace, Labels{"obs-pusher": "events"})
-		if err != nil {
-			println(err.Error())
-			return
-		}
+		for name, seqEvents := range groupedSequenceEvents {
+			// Collect labels for the current group of sequence events
+			allLabels := make(Labels)
+			for _, seqEvent := range seqEvents {
+				if len(seqEvent.Labels) > 0 {
+					seqLabels := parseLabels(seqEvent.Labels)
+					allLabels.Append(seqLabels)
+				}
+			}
 
-		// delete existing pod if it exists
-		if len(podList.Items) > 0 {
-			for _, pod := range podList.Items {
-				knImpl.DeletePod(namespace, pod.Name)
-				knImpl.WaitForPodDeletion(namespace, pod.Name)
+			// Generate logs based on the sequence events and events
+			script := generateLogs(seqEvents, eventDictionary.Logs)
+
+			// Check if pod exists by fetching it based on labels
+			podList, err := knImpl.FetchPodByLabels(namespace, allLabels)
+			if err != nil {
+				println(err.Error())
+				return
+			}
+
+			// Delete existing pod if it exists
+			if len(podList.Items) > 0 {
+				for _, pod := range podList.Items {
+					println(pod.Name)
+					knImpl.DeletePod(namespace, pod.Name)
+					knImpl.WaitForPodDeletion(namespace, pod.Name)
+				}
+			}
+
+			println(name)
+			// Create a new pod
+			err = knImpl.CreateLogPod(namespace, name, []string{script}, allLabels, isPsaEnabled)
+
+			if err != nil {
+				println(err.Error())
+				return
 			}
 		}
-		// Create a new pod
-		err = knImpl.CreateLogPod(namespace, podName, []string{script}, podLabels, isPsaEnabled)
-
-		if err != nil {
-			println(err.Error())
-			return
-		}
-
 	},
 }
